@@ -1,0 +1,107 @@
+{
+  "title": "Matterbridge Hisense",
+  "description": "Climatizzatori Hisense con modulo Wi-Fi AEH-W4B1 tramite il cloud Ayla Networks",
+  "type": "object",
+  "required": ["email", "password", "app"],
+  "properties": {
+    "name": {
+      "description": "Nome del plugin",
+      "type": "string",
+      "readOnly": true,
+      "ui:widget": "hidden"
+    },
+    "type": {
+      "description": "Tipo di piattaforma",
+      "type": "string",
+      "readOnly": true,
+      "ui:widget": "hidden"
+    },
+    "email": {
+      "title": "Email",
+      "description": "Email dell'account usato nell'app del climatizzatore",
+      "type": "string"
+    },
+    "password": {
+      "title": "Password",
+      "description": "Password dell'app. Attenzione: dopo 5 tentativi errati Ayla blocca l'account; il plugin prova il login una sola volta per avvio.",
+      "type": "string",
+      "ui:widget": "password"
+    },
+    "app": {
+      "title": "App",
+      "description": "App usata per i climatizzatori: oem-eu = Hi-Smart AC, hisense-eu = HiSmart Life, mid-eu = WiFi AC (elenco completo nel README)",
+      "type": "string",
+      "default": "oem-eu",
+      "enum": [
+        "oem-eu",
+        "hisense-eu",
+        "hismart-eu",
+        "mid-eu",
+        "beko-eu",
+        "fglair-eu",
+        "oem-us",
+        "hisense-us",
+        "hismart-us",
+        "mid-us",
+        "field-us",
+        "denali-us",
+        "huihe-us",
+        "tornado-us",
+        "winia-us",
+        "wwh-us",
+        "york-us",
+        "fglair-us",
+        "fglair-cn",
+        "haxxair"
+      ]
+    },
+    "deviceType": {
+      "title": "Tipo di dispositivo Matter",
+      "description": "thermostat = termostato (massima compatibilità); airConditioner = condizionatore con accensione e ventola (se supportato dal controller)",
+      "type": "string",
+      "default": "thermostat",
+      "enum": ["thermostat", "airConditioner"]
+    },
+    "namePrefix": {
+      "title": "Prefisso del nome",
+      "description": "Anteposto al nome impostato nell'app (es. \"Condizionatore soggiorno\")",
+      "type": "string",
+      "default": "Condizionatore "
+    },
+    "pollInterval": {
+      "title": "Intervallo di aggiornamento (secondi)",
+      "description": "Ogni quanto leggere lo stato dal cloud (minimo 15)",
+      "type": "integer",
+      "default": 30,
+      "minimum": 15
+    },
+    "whiteList": {
+      "title": "Solo questi dispositivi",
+      "description": "Se non vuota, espone solo i climatizzatori elencati (nome nell'app o DSN)",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "selectFrom": "name"
+    },
+    "blackList": {
+      "title": "Escludi questi dispositivi",
+      "description": "Climatizzatori da non esporre (nome nell'app o DSN)",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "selectFrom": "name"
+    },
+    "debug": {
+      "title": "Debug",
+      "description": "Log dettagliati",
+      "type": "boolean",
+      "default": false
+    },
+    "unregisterOnShutdown": {
+      "title": "Rimuovi dispositivi allo spegnimento",
+      "description": "Solo per sviluppo: cancella i dispositivi registrati quando il plugin si ferma",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

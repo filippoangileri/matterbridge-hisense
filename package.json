@@ -1,0 +1,51 @@
+{
+  "name": "matterbridge-hisense",
+  "version": "0.1.0",
+  "description": "Plugin Matterbridge per climatizzatori Hisense con modulo Wi-Fi AEH-W4B1 (cloud Ayla Networks): li espone ad Alexa, Google e Apple tramite Matter",
+  "author": "filippoangileri",
+  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/filippoangileri/matterbridge-hisense",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/filippoangileri/matterbridge-hisense.git"
+  },
+  "type": "module",
+  "main": "dist/module.js",
+  "types": "dist/module.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/module.js",
+      "types": "./dist/module.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "matterbridge-hisense.schema.json",
+    "matterbridge-hisense.config.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "keywords": [
+    "matterbridge",
+    "matter",
+    "hisense",
+    "ayla",
+    "aeh-w4b1",
+    "air conditioner",
+    "alexa"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "link": "npm link --no-fund --no-audit matterbridge",
+    "add": "matterbridge --add ."
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}

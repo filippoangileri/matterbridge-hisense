@@ -1,0 +1,14 @@
+{
+  "name": "matterbridge-hisense",
+  "type": "DynamicPlatform",
+  "email": "",
+  "password": "",
+  "app": "oem-eu",
+  "deviceType": "thermostat",
+  "namePrefix": "Condizionatore ",
+  "pollInterval": 30,
+  "whiteList": [],
+  "blackList": [],
+  "debug": false,
+  "unregisterOnShutdown": false
+}
