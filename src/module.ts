@@ -63,6 +63,7 @@ interface HisenseDevice {
   /** coda delle scritture: una alla volta per dispositivo */
   queue: Promise<void>;
   refreshTimer?: NodeJS.Timeout;
+  lastSummary?: string;
 }
 
 export default function initializePlugin(matterbridge: PlatformMatterbridge, log: AnsiLogger, config: PlatformConfig): HisensePlatform {
@@ -157,8 +158,9 @@ export class HisensePlatform extends MatterbridgeDynamicPlatform {
     const model = String(dev.model ?? dev.oem_model ?? 'AEH-W4B1');
 
     const powerOn = asInt(props.t_power, 0) === 1;
-    const room = deviceToCelsius(props.f_temp_in, client.celsius) ?? 22;
-    const setpoint = clampSetpoint(deviceToCelsius(props.t_temp, client.celsius) ?? 24);
+    // Valori iniziali in °C interi (Matter vuole centesimi interi); i valori precisi arrivano col primo aggiornamento.
+    const room = Math.round(deviceToCelsius(props.f_temp_in, client.celsius) ?? 22);
+    const setpoint = Math.round(clampSetpoint(deviceToCelsius(props.t_temp, client.celsius) ?? 24));
 
     const types = this.isAirConditioner ? [roomAirConditioner, bridgedNode, powerSource] : [thermostat, bridgedNode, powerSource];
     const endpoint = new MatterbridgeEndpoint(types as [typeof thermostat, ...(typeof thermostat)[]], { id: dev.dsn }, this.config.debug)
@@ -238,7 +240,7 @@ export class HisensePlatform extends MatterbridgeDynamicPlatform {
           this.log.info(`[${device.name}] ${attribute} → ${celsius} °C`);
           this.write(device, [['t_temp', celsiusToDevice(celsius, this.apiCelsius)]]);
           // Il climatizzatore ha un solo setpoint: allinea l'altro.
-          void endpoint.updateAttribute(THERMOSTAT, mirror, Math.round(celsius * 100), this.log);
+          void endpoint.updateAttribute(THERMOSTAT, mirror, Math.round(celsius * 100), this.log).catch(() => false);
         },
         this.log,
       );
@@ -356,11 +358,7 @@ export class HisensePlatform extends MatterbridgeDynamicPlatform {
 
     await endpoint.updateAttribute(BRIDGED_INFO, 'reachable', device.online, this.log);
     if (room !== undefined) await endpoint.updateAttribute(THERMOSTAT, 'localTemperature', Math.round(room * 100), this.log);
-    if (setpoint !== undefined) {
-      const value = Math.round(clampSetpoint(setpoint) * 100);
-      await endpoint.updateAttribute(THERMOSTAT, 'occupiedHeatingSetpoint', value, this.log);
-      await endpoint.updateAttribute(THERMOSTAT, 'occupiedCoolingSetpoint', value, this.log);
-    }
+    if (setpoint !== undefined) await this.setSetpoints(device, Math.round(clampSetpoint(setpoint) * 100));
     await this.setSystemMode(device, toSystemMode(powerOn, workMode));
     await this.setRunningState(device, powerOn, workMode);
 
@@ -370,6 +368,34 @@ export class HisensePlatform extends MatterbridgeDynamicPlatform {
       await endpoint.updateAttribute(FAN_CONTROL, 'fanMode', fanMode, this.log);
       if (fanMode !== FanMode.Auto) await endpoint.updateAttribute(FAN_CONTROL, 'percentSetting', percent, this.log);
       await endpoint.updateAttribute(FAN_CONTROL, 'percentCurrent', powerOn ? percent : 0, this.log);
+    }
+
+    const summary =
+      `${device.online ? '' : 'OFFLINE, '}${powerOn ? 'acceso' : 'spento'}, modo ${workModeName(workMode)}, ` +
+      `setpoint ${fmt(endpoint.getAttribute(THERMOSTAT, 'occupiedHeatingSetpoint'))}/${fmt(endpoint.getAttribute(THERMOSTAT, 'occupiedCoolingSetpoint'))} °C, ` +
+      `stanza ${fmt(endpoint.getAttribute(THERMOSTAT, 'localTemperature'))} °C, systemMode ${endpoint.getAttribute(THERMOSTAT, 'systemMode')}`;
+    if (summary !== device.lastSummary) {
+      this.log.info(`[${device.name}] ${summary}`);
+      device.lastSummary = summary;
+    }
+  }
+
+  /**
+   * Aggiorna i due setpoint Matter allo stesso valore. L'ordine conta: Matter richiede
+   * riscaldamento <= raffreddamento, quindi se il valore sale si aggiorna prima il raffreddamento.
+   */
+  private async setSetpoints(device: HisenseDevice, value: number): Promise<void> {
+    const { endpoint } = device;
+    const heating = Number(endpoint.getAttribute(THERMOSTAT, 'occupiedHeatingSetpoint'));
+    const order = value > heating ? ['occupiedCoolingSetpoint', 'occupiedHeatingSetpoint'] : ['occupiedHeatingSetpoint', 'occupiedCoolingSetpoint'];
+    for (const attribute of order) {
+      const ok = await endpoint.updateAttribute(THERMOSTAT, attribute, value, this.log).catch((err: Error) => {
+        this.log.warn(`[${device.name}] ${attribute}=${value} rifiutato: ${err.message}`);
+        return false;
+      });
+      if (!ok && Number(endpoint.getAttribute(THERMOSTAT, attribute)) !== value) {
+        this.log.warn(`[${device.name}] ${attribute} non aggiornato a ${value}`);
+      }
     }
   }
 
@@ -398,4 +424,13 @@ export class HisensePlatform extends MatterbridgeDynamicPlatform {
 
 function clampSetpoint(celsius: number): number {
   return Math.min(SETPOINT_MAX_C, Math.max(SETPOINT_MIN_C, celsius));
+}
+
+function workModeName(mode: number): string {
+  return Object.entries(WorkMode).find(([, v]) => v === mode)?.[0].toLowerCase() ?? String(mode);
+}
+
+/** Centesimi di °C (Matter) → stringa in °C con un decimale. */
+function fmt(value: unknown): string {
+  return typeof value === 'number' ? (value / 100).toFixed(1) : '?';
 }
